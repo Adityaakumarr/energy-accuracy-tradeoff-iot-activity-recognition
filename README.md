@@ -277,7 +277,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 For questions or collaborations:
 
 - **GitHub Issues**: [Create an issue](https://github.com/Adityaakumarr/energy-accuracy-tradeoff-iot-activity-recognition/issues)
-- **Email**: your.email@example.com
+- **Email**: adityakumariul@gmail.com
 
 ---
 
