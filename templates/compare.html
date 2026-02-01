@@ -1,0 +1,305 @@
+{% extends "base.html" %} {% block title %}Compare Methods - Energy-Accuracy
+Tradeoff{% endblock %} {% block content %}
+<section class="section">
+  <div class="container">
+    <h1 class="page-title">Method Comparison</h1>
+    <p class="page-description">
+      Compare multiple feature extraction methods side-by-side
+    </p>
+
+    <!-- Method Selection -->
+    <div class="card">
+      <h2 class="card-title">Select Methods to Compare</h2>
+      <div class="method-checkboxes" id="methodCheckboxes">
+        <div class="loading">Loading methods...</div>
+      </div>
+      <button id="compareBtn" class="btn btn-primary">
+        Compare Selected Methods
+      </button>
+    </div>
+
+    <!-- Comparison Results -->
+    <div id="comparisonResults" style="display: none">
+      <!-- Comparison Table -->
+      <div class="card">
+        <h2 class="card-title">Comparison Table</h2>
+        <div class="table-container">
+          <table class="comparison-table" id="comparisonTable">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th id="method1Header">Method 1</th>
+                <th id="method2Header">Method 2</th>
+                <th id="method3Header">Method 3</th>
+              </tr>
+            </thead>
+            <tbody id="comparisonTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Comparison Charts -->
+      <div class="comparison-charts">
+        <div class="card">
+          <h3>Accuracy Comparison</h3>
+          <canvas id="accuracyChart"></canvas>
+        </div>
+        <div class="card">
+          <h3>Energy Consumption</h3>
+          <canvas id="energyComparisonChart"></canvas>
+        </div>
+        <div class="card">
+          <h3>Feature Count</h3>
+          <canvas id="featuresChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Radar Chart -->
+      <div class="card">
+        <h2 class="card-title">Multi-Metric Comparison</h2>
+        <canvas id="radarChart"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %} {% block extra_scripts %}
+<script>
+  let availableMethods = [];
+  let comparisonCharts = {};
+
+  // Load available methods
+  async function loadMethods() {
+    try {
+      const response = await fetch("/api/methods");
+      const data = await response.json();
+
+      if (data.success) {
+        availableMethods = data.methods;
+        displayMethodCheckboxes();
+      }
+    } catch (error) {
+      console.error("Error loading methods:", error);
+    }
+  }
+
+  function displayMethodCheckboxes() {
+    const container = document.getElementById("methodCheckboxes");
+    container.innerHTML = "";
+
+    availableMethods.forEach((method) => {
+      const checkbox = document.createElement("label");
+      checkbox.className = "checkbox-label";
+      checkbox.innerHTML = `
+            <input type="checkbox" name="method" value="${method.name}">
+            <span>${method.name}</span>
+        `;
+      container.appendChild(checkbox);
+    });
+  }
+
+  // Compare selected methods
+  document.getElementById("compareBtn").addEventListener("click", async () => {
+    const checkboxes = document.querySelectorAll(
+      'input[name="method"]:checked',
+    );
+    const selectedMethods = Array.from(checkboxes).map((cb) => cb.value);
+
+    if (selectedMethods.length < 2) {
+      alert("Please select at least 2 methods to compare");
+      return;
+    }
+
+    if (selectedMethods.length > 4) {
+      alert("Please select no more than 4 methods");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/comparison", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ methods: selectedMethods }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        displayComparison(data.comparisons);
+      }
+    } catch (error) {
+      console.error("Error comparing methods:", error);
+    }
+  });
+
+  function displayComparison(comparisons) {
+    document.getElementById("comparisonResults").style.display = "block";
+
+    // Update table headers
+    comparisons.forEach((comp, idx) => {
+      const header = document.getElementById(`method${idx + 1}Header`);
+      if (header) {
+        header.textContent = comp.method;
+      }
+    });
+
+    // Build comparison table
+    const tbody = document.getElementById("comparisonTableBody");
+    tbody.innerHTML = `
+        <tr>
+            <td><strong>Predicted Activity</strong></td>
+            ${comparisons.map((c) => `<td>${c.predicted_activity}</td>`).join("")}
+        </tr>
+        <tr>
+            <td><strong>Confidence</strong></td>
+            ${comparisons.map((c) => `<td>${(c.confidence * 100).toFixed(1)}%</td>`).join("")}
+        </tr>
+        <tr>
+            <td><strong>Features</strong></td>
+            ${comparisons.map((c) => `<td>${c.features_extracted}</td>`).join("")}
+        </tr>
+        <tr>
+            <td><strong>Total Energy (µJ)</strong></td>
+            ${comparisons.map((c) => `<td>${c.energy.total_uj.toFixed(2)}</td>`).join("")}
+        </tr>
+        <tr>
+            <td><strong>Computation (µJ)</strong></td>
+            ${comparisons.map((c) => `<td>${c.energy.computation_uj.toFixed(2)}</td>`).join("")}
+        </tr>
+        <tr>
+            <td><strong>Transmission (µJ)</strong></td>
+            ${comparisons.map((c) => `<td>${c.energy.transmission_uj.toFixed(2)}</td>`).join("")}
+        </tr>
+        <tr>
+            <td><strong>FLOPs</strong></td>
+            ${comparisons.map((c) => `<td>${c.flops.toLocaleString()}</td>`).join("")}
+        </tr>
+        <tr>
+            <td><strong>Bytes</strong></td>
+            ${comparisons.map((c) => `<td>${c.bytes_transmitted}</td>`).join("")}
+        </tr>
+    `;
+
+    // Create charts
+    createComparisonCharts(comparisons);
+  }
+
+  function createComparisonCharts(comparisons) {
+    const methods = comparisons.map((c) => c.method);
+    const colors = ["#4f46e5", "#06b6d4", "#10b981", "#f59e0b"];
+
+    // Accuracy chart
+    const accuracyCtx = document
+      .getElementById("accuracyChart")
+      .getContext("2d");
+    if (comparisonCharts.accuracy) comparisonCharts.accuracy.destroy();
+    comparisonCharts.accuracy = new Chart(accuracyCtx, {
+      type: "bar",
+      data: {
+        labels: methods,
+        datasets: [
+          {
+            label: "Confidence",
+            data: comparisons.map((c) => c.confidence * 100),
+            backgroundColor: colors.slice(0, methods.length),
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true, max: 100 },
+        },
+      },
+    });
+
+    // Energy chart
+    const energyCtx = document
+      .getElementById("energyComparisonChart")
+      .getContext("2d");
+    if (comparisonCharts.energy) comparisonCharts.energy.destroy();
+    comparisonCharts.energy = new Chart(energyCtx, {
+      type: "bar",
+      data: {
+        labels: methods,
+        datasets: [
+          {
+            label: "Computation",
+            data: comparisons.map((c) => c.energy.computation_uj),
+            backgroundColor: "#4f46e5",
+          },
+          {
+            label: "Transmission",
+            data: comparisons.map((c) => c.energy.transmission_uj),
+            backgroundColor: "#06b6d4",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true },
+        },
+      },
+    });
+
+    // Features chart
+    const featuresCtx = document
+      .getElementById("featuresChart")
+      .getContext("2d");
+    if (comparisonCharts.features) comparisonCharts.features.destroy();
+    comparisonCharts.features = new Chart(featuresCtx, {
+      type: "bar",
+      data: {
+        labels: methods,
+        datasets: [
+          {
+            label: "Feature Count",
+            data: comparisons.map((c) => c.features_extracted),
+            backgroundColor: colors.slice(0, methods.length),
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true },
+        },
+      },
+    });
+
+    // Radar chart (normalized metrics)
+    const radarCtx = document.getElementById("radarChart").getContext("2d");
+    if (comparisonCharts.radar) comparisonCharts.radar.destroy();
+
+    const maxEnergy = Math.max(...comparisons.map((c) => c.energy.total_uj));
+    const maxFeatures = Math.max(
+      ...comparisons.map((c) => c.features_extracted),
+    );
+
+    comparisonCharts.radar = new Chart(radarCtx, {
+      type: "radar",
+      data: {
+        labels: ["Confidence", "Energy Efficiency", "Compression"],
+        datasets: comparisons.map((c, idx) => ({
+          label: c.method,
+          data: [
+            c.confidence * 100,
+            100 - (c.energy.total_uj / maxEnergy) * 100,
+            100 - (c.features_extracted / maxFeatures) * 100,
+          ],
+          borderColor: colors[idx],
+          backgroundColor: colors[idx] + "33",
+        })),
+      },
+      options: {
+        responsive: true,
+        scales: {
+          r: { beginAtZero: true, max: 100 },
+        },
+      },
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", loadMethods);
+</script>
+{% endblock %}

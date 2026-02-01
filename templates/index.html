@@ -1,0 +1,174 @@
+{% extends "base.html" %} {% block title %}Home - Energy-Accuracy Tradeoff{%
+endblock %} {% block content %}
+<!-- Hero Section -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <h1 class="hero-title">
+        Energy-Accuracy Trade-offs in<br />
+        <span class="gradient-text">On-Device Activity Recognition</span>
+      </h1>
+      <p class="hero-subtitle">
+        Systematic experimental study comparing signal representation strategies
+        for human activity recognition on battery-constrained wearable IoT
+        devices
+      </p>
+      <div class="hero-stats">
+        <div class="stat-card">
+          <div class="stat-value">95.3%</div>
+          <div class="stat-label">Energy Savings</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">99.80%</div>
+          <div class="stat-label">Accuracy</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">21.3×</div>
+          <div class="stat-label">Compression</div>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <a href="/results" class="btn btn-primary">View Results</a>
+        <a href="/predict" class="btn btn-secondary">Try It Out</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Key Findings -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">Key Research Findings</h2>
+    <div class="findings-grid">
+      <div class="finding-card">
+        <div class="finding-icon">📊</div>
+        <h3>Transmission Energy Dominates</h3>
+        <p>
+          BLE radio transmission consumes
+          <strong>600,000× more energy</strong> than computation, making local
+          signal processing highly worthwhile.
+        </p>
+        <ul class="finding-details">
+          <li>BLE transmission: 12 µJ per byte</li>
+          <li>ARM Cortex-M4: 3.7 pJ per FLOP</li>
+        </ul>
+      </div>
+
+      <div class="finding-card">
+        <div class="finding-icon">⚡</div>
+        <h3>Simple Features Win</h3>
+        <p>
+          Time-domain statistics outperform complex transform-domain methods in
+          both <strong>accuracy AND energy efficiency</strong>.
+        </p>
+        <ul class="finding-details">
+          <li>36 features vs 768 raw samples</li>
+          <li>99.80% accuracy maintained</li>
+        </ul>
+      </div>
+
+      <div class="finding-card">
+        <div class="finding-icon">🎯</div>
+        <h3>Compression Improves Accuracy</h3>
+        <p>
+          Compressed representations achieve
+          <strong>higher accuracy</strong> than raw transmission due to noise
+          reduction and feature selection.
+        </p>
+        <ul class="finding-details">
+          <li>Raw baseline: 86.00% accuracy</li>
+          <li>Compressed: 99.80% accuracy</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Methods Overview -->
+<section class="section section-alt">
+  <div class="container">
+    <h2 class="section-title">Feature Extraction Methods</h2>
+    <p class="section-description">
+      We evaluated 8 different signal representation strategies for on-device
+      activity recognition
+    </p>
+    <div class="methods-grid" id="methodsGrid">
+      <!-- Methods will be loaded dynamically -->
+      <div class="loading">Loading methods...</div>
+    </div>
+  </div>
+</section>
+
+<!-- Quick Start -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">Get Started</h2>
+    <div class="quick-start-grid">
+      <div class="quick-start-card">
+        <h3>📈 Explore Results</h3>
+        <p>
+          View comprehensive experimental results, visualizations, and
+          Pareto-optimal solutions
+        </p>
+        <a href="/results" class="btn btn-outline">View Results →</a>
+      </div>
+
+      <div class="quick-start-card">
+        <h3>🔮 Test Predictions</h3>
+        <p>
+          Upload sensor data or use sample data to test different feature
+          extraction methods
+        </p>
+        <a href="/predict" class="btn btn-outline">Try Prediction →</a>
+      </div>
+
+      <div class="quick-start-card">
+        <h3>⚖️ Compare Methods</h3>
+        <p>
+          Side-by-side comparison of accuracy, energy consumption, and
+          compression ratios
+        </p>
+        <a href="/compare" class="btn btn-outline">Compare Methods →</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %} {% block extra_scripts %}
+<script>
+  // Load methods dynamically
+  async function loadMethods() {
+    try {
+      const response = await fetch("/api/methods");
+      const data = await response.json();
+
+      if (data.success) {
+        const grid = document.getElementById("methodsGrid");
+        grid.innerHTML = "";
+
+        data.methods.forEach((method) => {
+          const card = document.createElement("div");
+          card.className = "method-card";
+          card.innerHTML = `
+                    <div class="method-header">
+                        <h3>${method.name}</h3>
+                        <span class="method-badge">${method.type}</span>
+                    </div>
+                    <p class="method-description">${method.description}</p>
+                    <div class="method-features">
+                        <span class="feature-count">${method.features} features</span>
+                    </div>
+                `;
+          grid.appendChild(card);
+        });
+      }
+    } catch (error) {
+      console.error("Error loading methods:", error);
+      document.getElementById("methodsGrid").innerHTML =
+        '<div class="error">Failed to load methods</div>';
+    }
+  }
+
+  // Load methods when page loads
+  document.addEventListener("DOMContentLoaded", loadMethods);
+</script>
+{% endblock %}

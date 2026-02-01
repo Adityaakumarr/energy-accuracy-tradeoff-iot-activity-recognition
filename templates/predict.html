@@ -1,0 +1,255 @@
+{% extends "base.html" %} {% block title %}Predict - Energy-Accuracy Tradeoff{%
+endblock %} {% block content %}
+<section class="section">
+  <div class="container">
+    <h1 class="page-title">Activity Prediction</h1>
+    <p class="page-description">
+      Test different feature extraction methods with sensor data
+    </p>
+
+    <div class="predict-grid">
+      <!-- Input Panel -->
+      <div class="card">
+        <h2 class="card-title">Input Configuration</h2>
+
+        <div class="form-group">
+          <label for="methodSelect">Feature Extraction Method</label>
+          <select id="methodSelect" class="form-select">
+            <option value="Time-Domain">Time-Domain Statistics</option>
+            <option value="FFT">FFT Spectral Features</option>
+            <option value="DCT-4x">DCT Compression (4×)</option>
+            <option value="DCT-8x">DCT Compression (8×)</option>
+            <option value="Hybrid">Hybrid Features</option>
+            <option value="Raw">Raw Transmission</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Sensor Data Source</label>
+          <div class="button-group">
+            <button id="useSampleBtn" class="btn btn-secondary">
+              Use Sample Data
+            </button>
+            <button id="uploadBtn" class="btn btn-outline">Upload CSV</button>
+          </div>
+          <input
+            type="file"
+            id="fileInput"
+            accept=".csv"
+            style="display: none"
+          />
+          <p class="form-help">
+            Sample data: Walking activity (128 samples × 6 axes)
+          </p>
+        </div>
+
+        <button id="predictBtn" class="btn btn-primary btn-block">
+          Run Prediction
+        </button>
+      </div>
+
+      <!-- Results Panel -->
+      <div class="card">
+        <h2 class="card-title">Prediction Results</h2>
+        <div id="predictionResults" class="prediction-results">
+          <div class="empty-state">
+            <div class="empty-icon">🔮</div>
+            <p>Run a prediction to see results</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Energy Breakdown Chart -->
+    <div class="card" id="energyChartCard" style="display: none">
+      <h2 class="card-title">Energy Consumption Breakdown</h2>
+      <canvas id="energyChart"></canvas>
+    </div>
+  </div>
+</section>
+{% endblock %} {% block extra_scripts %}
+<script>
+  let currentSensorData = null;
+  let energyChart = null;
+
+  // Use sample data
+  document
+    .getElementById("useSampleBtn")
+    .addEventListener("click", async () => {
+      try {
+        const response = await fetch("/api/sample-data");
+        const data = await response.json();
+
+        if (data.success) {
+          currentSensorData = data.sensor_data;
+          showNotification("Sample data loaded successfully", "success");
+        }
+      } catch (error) {
+        showNotification("Error loading sample data", "error");
+      }
+    });
+
+  // Upload file
+  document.getElementById("uploadBtn").addEventListener("click", () => {
+    document.getElementById("fileInput").click();
+  });
+
+  document.getElementById("fileInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          // Parse CSV (simple implementation)
+          const text = event.target.result;
+          const lines = text.trim().split("\n");
+          const data = lines.map((line) => line.split(",").map(Number));
+
+          if (data.length === 128 && data[0].length === 6) {
+            currentSensorData = data;
+            showNotification("File uploaded successfully", "success");
+          } else {
+            showNotification(
+              "Invalid file format. Expected 128×6 CSV",
+              "error",
+            );
+          }
+        } catch (error) {
+          showNotification("Error parsing file", "error");
+        }
+      };
+      reader.readAsText(file);
+    }
+  });
+
+  // Run prediction
+  document.getElementById("predictBtn").addEventListener("click", async () => {
+    const method = document.getElementById("methodSelect").value;
+
+    if (!currentSensorData) {
+      showNotification("Please load sensor data first", "warning");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sensor_data: currentSensorData,
+          method: method,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        displayPrediction(data.prediction);
+      } else {
+        showNotification("Prediction failed: " + data.error, "error");
+      }
+    } catch (error) {
+      showNotification("Error running prediction", "error");
+    }
+  });
+
+  function displayPrediction(prediction) {
+    const resultsDiv = document.getElementById("predictionResults");
+
+    resultsDiv.innerHTML = `
+        <div class="prediction-result">
+            <div class="result-header">
+                <h3>Predicted Activity</h3>
+                <div class="activity-badge">${prediction.predicted_activity}</div>
+            </div>
+            
+            <div class="result-metrics">
+                <div class="metric">
+                    <span class="metric-label">Confidence</span>
+                    <span class="metric-value">${(prediction.confidence * 100).toFixed(1)}%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Method</span>
+                    <span class="metric-value">${prediction.method}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Features</span>
+                    <span class="metric-value">${prediction.features_extracted}</span>
+                </div>
+            </div>
+            
+            <div class="energy-metrics">
+                <h4>Energy Consumption</h4>
+                <div class="energy-grid">
+                    <div class="energy-item">
+                        <span class="energy-label">Total</span>
+                        <span class="energy-value">${prediction.energy.total_uj.toFixed(2)} µJ</span>
+                    </div>
+                    <div class="energy-item">
+                        <span class="energy-label">Computation</span>
+                        <span class="energy-value">${prediction.energy.computation_uj.toFixed(2)} µJ</span>
+                    </div>
+                    <div class="energy-item">
+                        <span class="energy-label">Transmission</span>
+                        <span class="energy-value">${prediction.energy.transmission_uj.toFixed(2)} µJ</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="technical-details">
+                <h4>Technical Details</h4>
+                <ul>
+                    <li>FLOPs: ${prediction.flops.toLocaleString()}</li>
+                    <li>Bytes transmitted: ${prediction.bytes_transmitted}</li>
+                    <li>Accel magnitude: ${prediction.sensor_stats.accel_magnitude_mean} m/s²</li>
+                    <li>Gyro magnitude: ${prediction.sensor_stats.gyro_magnitude_mean} rad/s</li>
+                </ul>
+            </div>
+        </div>
+    `;
+
+    // Show energy chart
+    document.getElementById("energyChartCard").style.display = "block";
+    updateEnergyChart(prediction.energy);
+  }
+
+  function updateEnergyChart(energy) {
+    const ctx = document.getElementById("energyChart").getContext("2d");
+
+    if (energyChart) {
+      energyChart.destroy();
+    }
+
+    energyChart = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: ["Computation", "Transmission"],
+        datasets: [
+          {
+            data: [energy.computation_uj, energy.transmission_uj],
+            backgroundColor: ["#4f46e5", "#06b6d4"],
+            borderWidth: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: "bottom",
+          },
+          title: {
+            display: true,
+            text: `Total Energy: ${energy.total_uj.toFixed(2)} µJ`,
+          },
+        },
+      },
+    });
+  }
+
+  function showNotification(message, type) {
+    // Simple notification (you can enhance this)
+    alert(message);
+  }
+</script>
+{% endblock %}

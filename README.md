@@ -100,6 +100,12 @@ pip install -r requirements.txt
 python energy_accuracy_research.py
 ```
 
+### Run the Experiment
+
+```bash
+python energy_accuracy_research.py
+```
+
 **Expected runtime**: ~5-10 minutes (depending on your hardware)
 
 **Output**:
@@ -107,6 +113,53 @@ python energy_accuracy_research.py
 - 6 publication-quality plots (PNG, 150 DPI)
 - Comprehensive results table
 - Research summary report (`RESEARCH_SUMMARY.md`)
+
+## 🌐 Interactive Web Application
+
+**NEW!** Explore the research interactively with our Flask web application:
+
+### Quick Start
+
+```bash
+# Install Flask dependencies (if not already installed)
+pip install Flask Flask-CORS
+
+# Run the web application
+python run_app.py
+```
+
+Then open your browser to **http://localhost:5000**
+
+### Features
+
+- **📊 Results Dashboard**: View all experimental results and visualizations
+- **🔮 Interactive Prediction**: Test different methods with sensor data
+- **⚖️ Method Comparison**: Compare multiple methods side-by-side
+- **🌙 Dark Mode**: Toggle between light and dark themes
+- **📱 Responsive Design**: Works on desktop, tablet, and mobile
+
+### Web App Pages
+
+- **Home** (`/`): Project overview and key findings
+- **Results** (`/results`): Comprehensive results and visualizations
+- **Predict** (`/predict`): Upload sensor data or use sample data for predictions
+- **Compare** (`/compare`): Side-by-side method comparison with charts
+
+### REST API
+
+The application also provides a REST API for programmatic access:
+
+```bash
+# Get all methods
+curl http://localhost:5000/api/methods
+
+# Run prediction
+curl -X POST http://localhost:5000/api/predict \
+  -H "Content-Type: application/json" \
+  -d '{"method": "Time-Domain"}'
+```
+
+See [WEB_APP_GUIDE.md](WEB_APP_GUIDE.md) for complete API documentation.
 
 ## 📁 Project Structure
 

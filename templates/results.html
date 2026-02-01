@@ -1,0 +1,103 @@
+{% extends "base.html" %} {% block title %}Results - Energy-Accuracy Tradeoff{%
+endblock %} {% block content %}
+<section class="section">
+  <div class="container">
+    <h1 class="page-title">Experimental Results</h1>
+    <p class="page-description">
+      Comprehensive analysis of 8 feature extraction methods across energy
+      consumption and classification accuracy
+    </p>
+
+    <!-- Results Table -->
+    <div class="card">
+      <h2 class="card-title">Performance Comparison</h2>
+      <div class="table-container">
+        <table class="results-table" id="resultsTable">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Accuracy</th>
+              <th>Features</th>
+              <th>Energy (µJ)</th>
+              <th>Savings</th>
+              <th>Compression</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="6" class="loading">Loading results...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Visualizations -->
+    <h2 class="section-title">Visualizations</h2>
+    <div class="visualizations-grid" id="visualizationsGrid">
+      <div class="loading">Loading visualizations...</div>
+    </div>
+  </div>
+</section>
+{% endblock %} {% block extra_scripts %}
+<script>
+  // Load results data
+  async function loadResults() {
+    try {
+      const response = await fetch("/api/results");
+      const data = await response.json();
+
+      if (data.success && data.results) {
+        const tbody = document.querySelector("#resultsTable tbody");
+        tbody.innerHTML = "";
+
+        data.results.forEach((result) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                    <td><strong>${result.representation_name}</strong></td>
+                    <td>${(result.accuracy_mean * 100).toFixed(2)}%</td>
+                    <td>${result.feature_dim}</td>
+                    <td>${result.energy_total_uj.toFixed(2)}</td>
+                    <td class="${result.energy_savings_percent > 0 ? "positive" : ""}">${result.energy_savings_percent.toFixed(1)}%</td>
+                    <td>${result.compression_ratio.toFixed(1)}×</td>
+                `;
+          tbody.appendChild(row);
+        });
+      }
+    } catch (error) {
+      console.error("Error loading results:", error);
+    }
+  }
+
+  // Load visualizations
+  async function loadVisualizations() {
+    try {
+      const response = await fetch("/api/visualizations");
+      const data = await response.json();
+
+      if (data.success && data.visualizations) {
+        const grid = document.getElementById("visualizationsGrid");
+        grid.innerHTML = "";
+
+        data.visualizations.forEach((viz) => {
+          const card = document.createElement("div");
+          card.className = "viz-card";
+          card.innerHTML = `
+                    <h3>${viz.name}</h3>
+                    <p>${viz.description}</p>
+                    <img src="/api/visualization/${viz.file}" alt="${viz.name}" loading="lazy">
+                `;
+          grid.appendChild(card);
+        });
+      }
+    } catch (error) {
+      console.error("Error loading visualizations:", error);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    loadResults();
+    loadVisualizations();
+  });
+</script>
+{% endblock %}
